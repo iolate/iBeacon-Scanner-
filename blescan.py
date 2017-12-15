@@ -50,27 +50,37 @@ class Beacon:
         self.udid, self.major, self.minor = None, None, None
         self.mac, self.unknown, self.rssi = None, None, None
     
+    def __eq__(self, other):
+        return self.mac == other.mac and self.udid == other.udid and self.major == other.major and self.minor == other.minor
+    
+    def __hash__(self): return hash('{}{}{}{}'.format(self.mac, self.udid, self.major, self.minor))
+    
     def __repr__(self):
-        return '<Beacon {} {}/{}>'.format(self.udid, self.major, self.minor)
+        return '<Beacon; {}; {}; {}/{}; RSSI: {}>'.format(self.mac, self.udid, self.major, self.minor, self.rssi)
 
+def to_char(c, signed=False):
+    if type(c) is int:
+        return -1 * (256-c) if signed and c > 127 else c
+    else:
+        return struct.unpack('b' if signed else 'B', c)[0]
 
 def returnnumberpacket(pkt):
     myInteger = 0
     multiple = 256
     for c in pkt:
-        myInteger +=  struct.unpack("B",c)[0] * multiple
+        myInteger += to_char(c) * multiple
         multiple = 1
     return myInteger 
 
 def returnstringpacket(pkt):
     myString = "";
     for c in pkt:
-        myString +=  "%02x" %struct.unpack("B",c)[0]
+        myString +=  "%02x" % to_char(c)
     return myString 
 
 def printpacket(pkt):
     for c in pkt:
-        sys.stdout.write("%02x " % struct.unpack("B",c)[0])
+        sys.stdout.write("%02x " % to_char(c))
 
 def get_packed_bdaddr(bdaddr_string):
     packable_addr = []
@@ -136,24 +146,29 @@ def parse_events(sock, loop_count=100):
         if event == bluez.EVT_INQUIRY_RESULT_WITH_RSSI: i = 0
         elif event == bluez.EVT_NUM_COMP_PKTS: i = 0 
         elif event == bluez.EVT_DISCONN_COMPLETE: i = 0 
-        elif event == LE_META_EVENT:
-            subevent, = struct.unpack("B", pkt[3])
+        if event == LE_META_EVENT:
+            subevent = to_char(pkt[3])
             pkt = pkt[4:]
             if subevent == EVT_LE_CONN_COMPLETE:
                 le_handle_connection_complete(pkt)
             elif subevent == EVT_LE_ADVERTISING_REPORT:
-                num_reports = struct.unpack("B", pkt[0])[0]
+                num_reports = to_char(pkt[0])
                 report_pkt_offset = 0
                 for i in range(0, num_reports):
                     b = Beacon()
-                    b.udid = returnstringpacket(pkt[report_pkt_offset -22: report_pkt_offset - 6])
+                    udid = returnstringpacket(pkt[report_pkt_offset -22: report_pkt_offset - 6]).upper()
+                    b.udid = '{}-{}-{}-{}-{}'.format(udid[:8], udid[8:12], udid[12:16], udid[16:20], udid[20:])
                     b.major = "%i" % returnnumberpacket(pkt[report_pkt_offset -6: report_pkt_offset - 4])
                     b.minor = "%i" % returnnumberpacket(pkt[report_pkt_offset -4: report_pkt_offset - 2])
-                    
                     b.mac = packed_bdaddr_to_string(pkt[report_pkt_offset + 3:report_pkt_offset + 9])
-                    b.unknown = "%i" % struct.unpack("b", pkt[report_pkt_offset -2])
-                    b.rssi = "%i" % struct.unpack("b", pkt[report_pkt_offset -1])
+                    b.unknown = "%i" % to_char(pkt[report_pkt_offset -2], signed=True)
+                    b.rssi = "%i" % to_char(pkt[report_pkt_offset -1], signed=True)
                     
-                    results.append(Adstring)
+                    if b in results:
+                        ob = results[results.index(b)]
+                        ob.unknown = b.unknown
+                        ob.rssi = b.rssi
+                    else:
+                        results.append(b)
     sock.setsockopt( bluez.SOL_HCI, bluez.HCI_FILTER, old_filter )
     return results
