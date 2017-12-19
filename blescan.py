@@ -47,16 +47,16 @@ ADV_SCAN_RSP=0x04
 
 class Beacon:
     def __init__(self):
-        self.udid, self.major, self.minor = None, None, None
+        self.uuid, self.major, self.minor = None, None, None
         self.mac, self.unknown, self.rssi = None, None, None
     
     def __eq__(self, other):
-        return self.mac == other.mac and self.udid == other.udid and self.major == other.major and self.minor == other.minor
+        return self.mac == other.mac and self.uuid == other.uuid and self.major == other.major and self.minor == other.minor
     
-    def __hash__(self): return hash('{}{}{}{}'.format(self.mac, self.udid, self.major, self.minor))
+    def __hash__(self): return hash('{}{}{}{}'.format(self.mac, self.uuid, self.major, self.minor))
     
     def __repr__(self):
-        return '<Beacon; {}; {}; {}/{}; RSSI: {}>'.format(self.mac, self.udid, self.major, self.minor, self.rssi)
+        return '<Beacon; {}; {}; {}/{}; RSSI: {}>'.format(self.mac, self.uuid, self.major, self.minor, self.rssi)
 
 def to_char(c, signed=False):
     if type(c) is int:
@@ -156,8 +156,8 @@ def parse_events(sock, loop_count=100):
                 report_pkt_offset = 0
                 for i in range(0, num_reports):
                     b = Beacon()
-                    udid = returnstringpacket(pkt[report_pkt_offset -22: report_pkt_offset - 6]).upper()
-                    b.udid = '{}-{}-{}-{}-{}'.format(udid[:8], udid[8:12], udid[12:16], udid[16:20], udid[20:])
+                    uuid = returnstringpacket(pkt[report_pkt_offset -22: report_pkt_offset - 6]).upper()
+                    b.uuid = '{}-{}-{}-{}-{}'.format(uuid[:8], uuid[8:12], uuid[12:16], uuid[16:20], uuid[20:])
                     b.major = "%i" % returnnumberpacket(pkt[report_pkt_offset -6: report_pkt_offset - 4])
                     b.minor = "%i" % returnnumberpacket(pkt[report_pkt_offset -4: report_pkt_offset - 2])
                     b.mac = packed_bdaddr_to_string(pkt[report_pkt_offset + 3:report_pkt_offset + 9])
